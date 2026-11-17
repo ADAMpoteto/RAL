@@ -122,6 +122,7 @@ tr.sub td{background:#f7f8fa!important;text-align:left;white-space:normal;paddin
 .adj{font-size:11px;font-weight:700;color:var(--red)}
 .rs{font-size:15px;font-weight:700;margin-right:2px}
 .rs.W{color:var(--red)}.rs.D{color:#555}.rs.L{color:#222}
+.recm{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:2px}.recm b{font-family:var(--num);font-size:16px}
 .empty{color:var(--sub);padding:14px 0;margin:0}
 /* competition page */
 .pagehead{background:var(--box);border:1px solid var(--line);border-top:3px solid var(--red);padding:14px 18px;margin-bottom:12px}
@@ -978,8 +979,10 @@ function pageRanking() {
 
 function pageRecords() {
   const R = records(MODEL), t = ui.recTab;
-  const mtable = (ms, f, head) => ms.length ? wrap(`<table class="st"><thead><tr><th>${head}</th><th class="l hm">日付</th><th class="l hm">大会</th><th class="r">ホーム</th><th>スコア</th><th class="l">アウェイ</th></tr></thead><tbody>${ms.map(m => `<tr><td class="num b">${f(m)}</td><td class="l hm">${fmtDate(m.date) || '—'}</td><td class="l hm"><a href="#comp-${m.comp.idx}">${compName(m.comp)}</a> ${roundLabel(m)}</td><td class="r">${clubLink(m.home)}</td><td class="num b">${m.hg} - ${m.ag}</td><td class="l">${clubLink(m.away)}</td></tr>`).join('')}</tbody></table>`) : empty('—');
-  const stable = (rows, unit) => rows.length ? wrap(`<table class="st"><thead><tr><th>記録</th><th class="l">クラブ</th><th class="l">期間</th></tr></thead><tbody>${rows.map(x => `<tr><td class="num b">${x.n}${unit}</td><td class="l">${clubLink(x.club)}</td><td class="l">${fmtDate(x.from.date) || compName(x.from.comp)} 〜 ${fmtDate(x.to.date) || compName(x.to.comp)}${x.current === x.n ? ' <span class="live">継続中</span>' : ''}</td></tr>`).join('')}</tbody></table>`) : empty('—');
+  const where = m => `${compName(m.comp)} ${roundLabel(m)}`;
+  const span = (a, b) => a.comp === b.comp ? (a === b ? where(a) : `${compName(a.comp)} ${roundLabel(a)} 〜 ${roundLabel(b)}`) : `${where(a)} 〜 ${where(b)}`;
+  const mtable = (ms, f, head) => ms.length ? wrap(`<table class="st"><thead><tr><th>${head}</th><th class="l">試合</th></tr></thead><tbody>${ms.map(m => `<tr><td class="num b">${f(m)}</td><td class="l"><div class="small muted"><a href="#comp-${m.comp.idx}">${compName(m.comp)}</a> ${roundLabel(m)}</div><div class="recm">${clubLink(m.home)}<b>${m.hg} - ${m.ag}</b>${clubLink(m.away)}</div></td></tr>`).join('')}</tbody></table>`) : empty('—');
+  const stable = (rows, unit) => rows.length ? wrap(`<table class="st"><thead><tr><th>記録</th><th class="l">クラブ</th><th class="l">期間</th></tr></thead><tbody>${rows.map(x => `<tr><td class="num b">${x.n}${unit}</td><td class="l">${clubLink(x.club)}</td><td class="l">${span(x.from, x.to)}${x.current === x.n ? ' <span class="live">継続中</span>' : ''}</td></tr>`).join('')}</tbody></table>`) : empty('—');
   const seas = (rows, f) => rows.length ? wrap(`<table class="st"><thead><tr><th>記録</th><th class="l">クラブ</th><th class="l">大会</th><th class="hm">試合</th></tr></thead><tbody>${rows.map(r => `<tr><td class="num b">${f(r)}</td><td class="l">${clubLink(r.club)}</td><td class="l"><a href="#comp-${r.comp.idx}">${compName(r.comp)}</a></td><td class="num hm">${r.P}</td></tr>`).join('')}</tbody></table>`) : empty('—');
   let body = '';
   if (t === 'match') body = `<section class="box">${sec('1試合最多得点')}${mtable(R.topGoals, m => m.hg + m.ag, '得点')}</section><section class="box">${sec('最大得点差')}${mtable(R.topMargin, m => Math.abs(m.hg - m.ag), '差')}</section>`;
