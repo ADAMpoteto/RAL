@@ -150,6 +150,8 @@ tr.sub td{background:#f7f8fa!important;text-align:left;white-space:normal;paddin
 .mxt td.self{background:#e9ebef}
 .mx{display:block;font-family:var(--num);font-weight:700;font-size:13px;padding:2px 0}
 .mx.W{color:var(--red)}.mx.L{color:var(--ink)}.mx.D{color:#666}
+.mxnote{font-size:12px;color:var(--sub);margin:0 0 6px}
+.mxt td .mx+.mx{border-top:1px dotted var(--line)}
 .gh{font-size:14px;margin:16px 0 6px}
 .bracket{display:flex;gap:18px;overflow-x:auto;padding:4px 0}
 .bcol{min-width:220px;display:flex;flex-direction:column;justify-content:space-around;gap:12px}
@@ -883,13 +885,24 @@ function penNotes(c) {
 function matrix(c) {
   const cl = c.table.map(r => r.club);
   if (!cl.length) return empty('まだ試合がありません');
-  const cell = (h, a) => {
-    if (h === a) return '<td class="self"></td>';
-    const ms = c.matches.filter(m => m.home === h && m.away === a);
-    if (!ms.length) return '<td></td>';
-    return `<td>${ms.map(m => { const r = m.played ? (m.res === 'D' ? 'D' : m.res === 'H' ? 'W' : 'L') : ''; return `<span class="mx ${r}">${m.played ? (m.counted ? m.hg + '-' + m.ag : '不戦') : '-'}</span>`; }).join('')}</td>`;
+  const one = (m, me) => {
+    if (!m) return '<span class="mx">&nbsp;</span>';
+    if (!m.played) return '<span class="mx">-</span>';
+    const side = m.home === me ? 'H' : 'A';
+    const r = m.res === 'D' ? 'D' : m.res === side ? 'W' : 'L';
+    const txt = m.counted ? (side === 'H' ? m.hg + '-' + m.ag : m.ag + '-' + m.hg) : (r === 'W' ? '不戦○' : '不戦●');
+    return `<span class="mx ${r}">${txt}</span>`;
   };
-  return wrap(`<table class="mxt"><thead><tr><th class="l"><span class="hm">ホーム ＼ アウェイ</span></th>${cl.map(x => `<th title="${esc(x.name)}">${em(x)}</th>`).join('')}</tr></thead><tbody>${cl.map(h => `<tr><th class="l">${clubLink(h)}</th>${cl.map(a => cell(h, a)).join('')}</tr>`).join('')}</tbody></table>`);
+  const cell = (me, op) => {
+    if (me === op) return '<td class="self"></td>';
+    const h = c.matches.filter(m => m.home === me && m.away === op);
+    const a = c.matches.filter(m => m.home === op && m.away === me);
+    const n = Math.max(h.length, a.length, 1);
+    let out = '';
+    for (let i = 0; i < n; i++) out += one(h[i], me) + one(a[i], me);
+    return `<td>${out}</td>`;
+  };
+  return `<p class="mxnote">各行のクラブから見た結果　上段：ホーム　下段：アウェイ</p>` + wrap(`<table class="mxt"><thead><tr><th class="l"></th>${cl.map(x => `<th title="${esc(x.name)}">${em(x)}</th>`).join('')}</tr></thead><tbody>${cl.map(h => `<tr><th class="l">${clubLink(h)}</th>${cl.map(a => cell(h, a)).join('')}</tr>`).join('')}</tbody></table>`);
 }
 function progChart(c) {
   if (c.progress.length < 2) return empty('2節以上の結果が入ると表示されます');
