@@ -360,6 +360,13 @@ function buildModel(raw) {
   });
 
   const pens = [];
+  // final standings entered by hand (for seasons without full match results)
+  (raw.finals || []).slice(1).forEach((r, i) => {
+    const cid = norm(r[0]); const cl = club(r[2]);
+    if (!cid || !cl) return;
+    const comp = getComp(cid);
+    (comp.finalRows = comp.finalRows || []).push({ pos: num(r[1]), club: cl, P: num(r[3]) || 0, W: num(r[4]) || 0, D: num(r[5]) || 0, L: num(r[6]) || 0, GF: num(r[7]) || 0, GA: num(r[8]) || 0, ptsIn: num(r[9]), note: norm(r[10]), row: i });
+  });
   (raw.pens || []).slice(1).forEach((r, i) => {
     const cid = norm(r[0]); const c = club(r[1]); const pts = num(r[2]);
     if (!cid || !c || pts === null) return;
@@ -410,6 +417,7 @@ function clubsInComp(c) {
   const set = new Set();
   for (const m of c.matches) { set.add(m.home); set.add(m.away); }
   for (const p of c.pens) set.add(p.club);
+  for (const r of c.finalRows || []) set.add(r.club);
   return [...set];
 }
 
@@ -451,6 +459,13 @@ function computeComp(model, c) {
   c.goals = c.matches.filter(m => m.counted).reduce((s, m) => s + m.hg + m.ag, 0);
   if (c.type === 'league') {
     c.table = tableFor(S, c.clubs, c.matches, c.pens);
+    if (c.finalRows && c.finalRows.length) {
+      c.fromFinal = true;
+      c.table = c.finalRows.map(r => ({ club: r.club, P: r.P, W: r.W, D: r.D, L: r.L, GF: r.GF, GA: r.GA, GD: r.GF - r.GA, adj: 0, pens: [], note: r.note,
+        Pts: r.ptsIn !== null ? r.ptsIn : r.W * S.win + r.D * S.draw + r.L * S.loss, pos: r.pos, row: r.row }))
+        .sort((a, b) => (a.pos ?? 99) - (b.pos ?? 99) || b.Pts - a.Pts || a.row - b.row);
+      c.table.forEach((r, i) => { if (r.pos === null) r.pos = i + 1; r.adj = r.Pts - (r.W * S.win + r.D * S.draw + r.L * S.loss); });
+    }
     const rns = [...new Set(c.matches.filter(m => m.played && m.rn !== null).map(m => m.rn))].sort((a, b) => a - b);
     c.progress = rns.map(rn => ({ rn, table: tableFor(S, c.clubs, c.matches, c.pens, rn) }));
     c.top = !(c.div > 1);
@@ -733,7 +748,7 @@ function demoRaw() {
 const SHEET_ID = '15gHjXXULVqd2uQ2u2BzNaHtuykkQ__g5rq6geGvnpiU';
 const SHEET_URL = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/edit';
 const SERVER = 'Google Sheets';
-const RANGES = { matches: "'試合結果'!A:L", comps: "'大会'!A:H", clubs: "'クラブ'!A:F", pens: "'処分'!A:F", settings: "'設定'!A:C" };
+const RANGES = { matches: "'試合結果'!A:L", comps: "'大会'!A:H", clubs: "'クラブ'!A:F", pens: "'処分'!A:F", settings: "'設定'!A:C", finals: "'最終順位'!A:K" };
 const PALETTE = ['#0e9fae', '#e8352b', '#e0a800', '#159a52', '#f07d0a', '#7b5cff', '#e8508f', '#2f6fe4', '#8d6e3f', '#4b5563', '#00a37a', '#c2410c'];
 
 let MODEL = null;
@@ -1171,7 +1186,7 @@ const ERR = {
 };
 // ---- CSV loading (GitHub Pages / any normal web host) ----
 const CFG = window.RAL_CONFIG || {};
-const TABS = { matches: ['試合結果', 0], comps: ['大会', 1], clubs: ['クラブ', 2], pens: ['処分', 3], settings: ['設定', 4] };
+const TABS = { matches: ['試合結果', 0], comps: ['大会', 1], clubs: ['クラブ', 2], pens: ['処分', 3], settings: ['設定', 4], finals: ['最終順位', 5] };
 function parseCsv(text) {
   const rows = []; let row = [], cell = '', q = false;
   for (let i = 0; i < text.length; i++) {
@@ -1194,12 +1209,15 @@ function csvUrl(name, gid, bust) {
 async function loadCsv(refresh) {
   try {
     const keys = Object.keys(TABS); const raw = {};
+    const OPTIONAL = ['finals'];
     await Promise.all(keys.map(async k => {
-      const res = await fetch(csvUrl(TABS[k][0], TABS[k][1], refresh), { cache: refresh ? 'no-store' : 'default' });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const text = await res.text();
-      if (/^\s*</.test(text)) throw new Error('not csv');
-      raw[k] = parseCsv(text);
+      try {
+        const res = await fetch(csvUrl(TABS[k][0], TABS[k][1], refresh), { cache: refresh ? 'no-store' : 'default' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const text = await res.text();
+        if (/^\s*</.test(text)) throw new Error('not csv');
+        raw[k] = parseCsv(text);
+      } catch (e) { if (OPTIONAL.includes(k)) raw[k] = []; else throw e; }
     }));
     const model = buildModel(raw);
     if (!model.matches.length) return useDemo('シートの「試合結果」にまだ結果がありません。', null, true);
