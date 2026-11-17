@@ -57,7 +57,7 @@ h2{font-size:16px;font-weight:700;margin:0}
 .more:after{content:' ›'}
 .subttl{margin:0 0 6px;font-weight:700;font-size:13px;display:flex;gap:8px;align-items:center}
 .tb{display:inline-block;font-size:11px;font-weight:700;padding:0 6px;line-height:18px;color:#fff;vertical-align:1px}
-.tb.league{background:var(--red)}.tb.cup{background:var(--blue)}
+.tb.league{background:var(--red)}.tb.cup{background:var(--blue)}.tb.div2{background:#8a6d3b}
 .live{display:inline-block;font-size:11px;font-weight:700;color:var(--red);border:1px solid var(--red);padding:0 5px;line-height:17px}
 .tag{display:inline-block;font-size:11px;color:var(--sub);border:1px solid var(--line);padding:0 5px;line-height:17px}
 /* emblem */
@@ -248,13 +248,14 @@ const DEFAULT_SETTINGS = {
   win: 3, draw: 1, loss: 0,
   eloInit: 1500, kLeague: 40, kCup: 20,
   cWin: 2, cDraw: 1, cLeague: 6, cLeagueTop: 6, cGroup1: 4, cGroup2: 2, cKo: 1, cSeasons: 5,
-  koRounds: ['ラウンド16', '準々決勝', '準決勝', '決勝'],
+  koRounds: ['1回戦', 'ラウンド16', '準々決勝', '準決勝', '3位決定戦', '決勝'],
+  cLeague2: 3, cLeague2Top: 3,
 };
 const SETTING_LABELS = {
   '勝ちの勝ち点': 'win', '引き分けの勝ち点': 'draw', '負けの勝ち点': 'loss',
   'レーティング初期値': 'eloInit', 'レーティング係数（リーグ）': 'kLeague', 'レーティング係数（カップ）': 'kCup',
   '係数（勝利）': 'cWin', '係数（引き分け）': 'cDraw', '係数（リーグ参加）': 'cLeague', '係数（リーグ順位・1位）': 'cLeagueTop',
-  '係数（カップ予選1位）': 'cGroup1', '係数（カップ予選2位）': 'cGroup2', '係数（決勝トーナメント進出）': 'cKo', '係数の対象シーズン数': 'cSeasons',
+  '係数（カップ予選1位）': 'cGroup1', '係数（カップ予選2位）': 'cGroup2', '係数（決勝トーナメント進出）': 'cKo', '係数の対象シーズン数': 'cSeasons', '係数（2部参加）': 'cLeague2', '係数（2部順位・1位）': 'cLeague2Top',
   'カップのラウンド順': 'koRounds',
 };
 
@@ -321,12 +322,12 @@ function buildModel(raw) {
   (raw.comps || []).slice(1).forEach((r, i) => {
     const id = norm(r[0]); if (!id || compById.has(id)) return;
     const c = { id, name: norm(r[1]) || id, type: /カップ|cup/i.test(norm(r[2])) ? 'cup' : 'league', season: norm(r[3]),
-      start: dateKey(r[4]), done: norm(r[5]) === '終了', status: norm(r[5]) || '開催中', note: norm(r[6]), row: i, matches: [], pens: [] };
+      start: dateKey(r[4]), done: norm(r[5]) === '終了', status: norm(r[5]) || '開催中', note: norm(r[6]), div: num(r[7]), row: i, matches: [], pens: [] };
     comps.push(c); compById.set(id, c);
   });
   const getComp = (id) => {
     if (compById.has(id)) return compById.get(id);
-    const c = { id, name: id, type: 'league', season: '', start: '', done: false, status: '開催中', note: '', row: 1e6 + comps.length, matches: [], pens: [] };
+    const c = { id, name: id, type: 'league', season: '', start: '', done: false, status: '開催中', note: '', div: null, row: 1e6 + comps.length, matches: [], pens: [] };
     comps.push(c); compById.set(id, c); return c;
   };
 
@@ -449,7 +450,8 @@ function computeComp(model, c) {
     c.table = tableFor(S, c.clubs, c.matches, c.pens);
     const rns = [...new Set(c.matches.filter(m => m.played && m.rn !== null).map(m => m.rn))].sort((a, b) => a - b);
     c.progress = rns.map(rn => ({ rn, table: tableFor(S, c.clubs, c.matches, c.pens, rn) }));
-    c.champion = c.done && c.table.length ? c.table[0].club : null;
+    c.top = !(c.div > 1);
+    c.champion = c.done && c.top && c.table.length ? c.table[0].club : null;
     c.result = new Map(c.table.map(r => [r.club, { label: `${r.pos}位`, pos: r.pos, n: c.table.length, row: r }]));
   } else {
     c.groupTables = c.groups.map(g => {
@@ -457,11 +459,36 @@ function computeComp(model, c) {
       const cl = [...new Set(ms.flatMap(m => [m.home, m.away]))];
       return { group: g, table: tableFor(S, cl, ms, []) };
     });
-    const fin = c.finalRound ? c.matches.filter(m => !m.isGroup && m.round === c.finalRound) : [];
-    const finM = fin.length === 1 && fin[0].played && fin[0].adv ? fin[0] : null;
-    c.finalMatch = fin[0] || null;
-    c.champion = finM ? (finM.adv === 'H' ? finM.home : finM.away) : null;
-    c.runnerUp = finM ? (finM.adv === 'H' ? finM.away : finM.home) : null;
+    // knockout ties (single match or two legs, aggregate then PK)
+    c.ties = [];
+    for (const rd of c.koRounds) {
+      const byPair = new Map();
+      for (const m of c.matches.filter(x => !x.isGroup && x.round === rd)) {
+        const k = [m.home.id, m.away.id].sort((x, y) => x - y).join('-');
+        if (!byPair.has(k)) byPair.set(k, { round: rd, a: m.home, b: m.away, legs: [] });
+        byPair.get(k).legs.push(m);
+      }
+      for (const t of byPair.values()) {
+        let ga = 0, gb = 0; t.played = t.legs.every(m => m.played);
+        for (const m of t.legs) if (m.counted) { if (m.home === t.a) { ga += m.hg; gb += m.ag; } else { ga += m.ag; gb += m.hg; } }
+        t.ga = ga; t.gb = gb;
+        const last = t.legs[t.legs.length - 1];
+        t.winner = null;
+        if (t.played) {
+          if (t.legs.length === 1) t.winner = last.adv ? (last.adv === 'H' ? last.home : last.away) : null;
+          else if (t.legs.some(m => m.fw)) { const f = t.legs.find(m => m.fw); t.winner = f.fw === 'H' ? f.home : f.away; }
+          else if (ga !== gb) t.winner = ga > gb ? t.a : t.b;
+          else if (last.pkh !== null && last.pka !== null && last.pkh !== last.pka) t.winner = (last.pkh > last.pka) === (last.home === t.a) ? t.a : t.b;
+        }
+        if (last.pkh !== null && last.pka !== null) t.pk = last.home === t.a ? [last.pkh, last.pka] : [last.pka, last.pkh];
+        t.loser = t.winner ? (t.winner === t.a ? t.b : t.a) : null;
+        if (t.legs.length > 1) t.legs.forEach((m, i) => { m.leg = i + 1; });
+        c.ties.push(t);
+      }
+    }
+    const finT = c.ties.find(t => t.round === c.finalRound);
+    c.champion = finT && finT.winner ? finT.winner : null;
+    c.runnerUp = finT && finT.winner ? finT.loser : null;
     const koStarted = c.matches.some(m => !m.isGroup && m.played);
     c.result = new Map();
     for (const cl of c.clubs) {
@@ -474,10 +501,11 @@ function computeComp(model, c) {
       if (cl === c.champion) { label = '優勝'; depth = 100; }
       else if (cl === c.runnerUp) { label = '準優勝'; depth = 99; }
       else if (ko.length) {
-        const last = ko.reduce((a, b) => (c.koRounds.indexOf(b.round) > c.koRounds.indexOf(a.round) ? b : a));
-        const side = last.home === cl ? 'H' : 'A';
-        const lost = last.played && last.adv && last.adv !== side;
-        label = last.round === '準決勝' && lost ? 'ベスト4' : last.round === '準々決勝' && lost ? 'ベスト8' : last.round + (lost ? '敗退' : last.played ? '突破' : '進出');
+        const ts = c.ties.filter(t => t.a === cl || t.b === cl);
+        const last = ts.reduce((x, y) => (c.koRounds.indexOf(y.round) > c.koRounds.indexOf(x.round) ? y : x));
+        const lost = last.winner && last.winner !== cl;
+        if (last.round === '3位決定戦') label = last.winner ? (lost ? '4位' : '3位') : 'ベスト4';
+        else label = last.round === '準決勝' && lost ? 'ベスト4' : last.round === '準々決勝' && lost ? 'ベスト8' : last.round + (lost ? '敗退' : last.winner ? '突破' : '進出');
         depth = 10 + c.koRounds.indexOf(last.round);
       } else {
         const gt = c.groupTables.find(g => g.table.some(r => r.club === cl));
@@ -518,7 +546,7 @@ function computeTitles(model) {
   for (const c of model.clubs) c.titles = [];
   const give = (club, comp, kind) => { club.titles.push({ comp, kind }); };
   for (const comp of model.comps) {
-    if (comp.type === 'league' && comp.done) {
+    if (comp.type === 'league' && comp.done && comp.top) {
       const t = comp.table;
       if (t[0]) give(t[0].club, comp, 'リーグ優勝');
       if (t[1]) give(t[1].club, comp, 'リーグ2位');
@@ -536,9 +564,14 @@ function computeTitles(model) {
 function computeCoef(model) {
   const S = model.S;
   const seasons = new Map();
+  const leagues = model.comps.filter(c => c.type === 'league');
   for (const c of model.comps) {
-    const key = c.season || c.name + ' ' + c.id;
-    if (!seasons.has(key)) seasons.set(key, { key, label: c.season || c.name, comps: [], idx: c.idx });
+    let key = c.season || c.name + ' ' + c.id, label = c.season || c.name, idx = c.idx;
+    if (c.type === 'cup') { // a cup belongs to the league season running at (or just before) its start
+      const prev = leagues.filter(l => (l.effStart || '') <= (c.effStart || '')).pop();
+      if (prev) { key = prev.season || prev.name + ' ' + prev.id; label = prev.season || prev.name; idx = prev.idx; }
+    }
+    if (!seasons.has(key)) seasons.set(key, { key, label, comps: [], idx });
     seasons.get(key).comps.push(c); c.seasonKey = key;
   }
   const list = [...seasons.values()].sort((a, b) => a.idx - b.idx);
@@ -562,10 +595,11 @@ function computeCoef(model) {
   }
   for (const c of model.comps) {
     if (c.type === 'league') {
-      for (const cl of c.clubs) add(cl, c, S.cLeague, 'リーグ参加');
+      const part = c.top ? S.cLeague : S.cLeague2, topB = c.top ? S.cLeagueTop : S.cLeague2Top, lab = c.top ? 'リーグ' : '2部';
+      for (const cl of c.clubs) add(cl, c, part, lab + '参加');
       if (c.done && c.table.length > 1) {
         const n = c.table.length;
-        for (const r of c.table) add(r.club, c, Math.round(S.cLeagueTop * (n - r.pos) / (n - 1) * 100) / 100, `リーグ${r.pos}位`);
+        for (const r of c.table) add(r.club, c, Math.round(topB * (n - r.pos) / (n - 1) * 100) / 100, `${lab}${r.pos}位`);
       }
     } else {
       const koStarted = c.matches.some(m => !m.isGroup && m.played);
@@ -724,7 +758,7 @@ const em = (c, size = '') => c.emblem
 const clubLink = (c, cls = '') => `<a class="cl ${cls}" href="#club-${c.id}">${em(c)}<span>${esc(c.name)}</span></a>`;
 const compName = c => `${esc(c.name)}${c.season ? ' ' + esc(c.season) : ''}`;
 const compLink = c => `<a href="#comp-${c.idx}">${compName(c)}</a>`;
-const typeBadge = c => `<span class="tb ${c.type}">${c.type === 'league' ? 'リーグ' : 'カップ'}</span>`;
+const typeBadge = c => c.type === 'league' ? (c.div > 1 ? `<span class="tb div2">${c.div}部</span>` : '<span class="tb league">リーグ</span>') : '<span class="tb cup">カップ</span>';
 const mark = r => `<span class="rs ${r}">${r === 'W' ? '○' : r === 'D' ? '△' : '●'}</span>`;
 const tabs = (name, items, cur) => `<div class="tabs" role="tablist">${items.map(([k, l]) => `<button role="tab" class="${k === cur ? 'on' : ''}" data-tab="${name}" data-v="${k}">${l}</button>`).join('')}</div>`;
 const sec = (title, link) => `<div class="sec"><h2>${title}</h2>${link || ''}</div>`;
@@ -738,7 +772,7 @@ function dateHead(k) {
 function roundLabel(m) {
   if (m.comp.type === 'league') return m.rn !== null ? `第${m.rn}節` : esc(m.round);
   if (m.isGroup) return `予選ラウンド${m.group && m.group !== '予選' ? ' ' + esc(m.group) + '組' : ''}${m.rn !== null ? '　第' + m.rn + '節' : ''}`;
-  return esc(m.round);
+  return esc(m.round) + (m.leg ? ` 第${m.leg}戦` : '');
 }
 function coefDetail(r) {
   const by = new Map();
@@ -810,7 +844,7 @@ function lineChart({ series, xLabels, invert, yMin, yMax, height = 280, yFmt = v
 
 // ---------- pages ----------
 function currentLeague() {
-  const ls = MODEL.comps.filter(c => c.type === 'league' && c.played);
+  const ls = MODEL.comps.filter(c => c.type === 'league' && c.played && !(c.div > 1));
   return ls.find(c => !c.done) || ls[ls.length - 1] || null;
 }
 function pageHome() {
@@ -910,25 +944,30 @@ function progChart(c) {
   return lineChart({ series, xLabels: c.progress.map(p => '第' + p.rn + '節'), invert: true, yMin: 1, yMax: c.clubs.length, yFmt: v => v + '位' });
 }
 function bracket(c) {
-  if (!c.koRounds.length) return empty('決勝トーナメントの試合はまだありません');
-  return `<div class="bracket">${c.koRounds.map(r => `<div class="bcol"><h4>${esc(r)}</h4>${c.matches.filter(m => !m.isGroup && m.round === r).map(m => {
-    const side = (cl, s) => `<div class="bt ${m.played && m.adv === s ? 'win' : m.played && m.adv ? 'lose' : ''}">${clubLink(cl)}<b>${m.counted ? (s === 'H' ? m.hg : m.ag) : m.fw ? (m.fw === s ? '○' : '●') : ''}${m.pkh !== null && m.pka !== null ? `<small>(${s === 'H' ? m.pkh : m.pka})</small>` : ''}</b></div>`;
-    return `<div class="bm">${m.date ? `<div class="bd">${dateHead(m.date)}</div>` : ''}${side(m.home, 'H')}${side(m.away, 'A')}</div>`;
+  if (!c.ties.length) return empty('決勝トーナメントの試合はまだありません');
+  const rounds = c.koRounds.filter(r => c.ties.some(x => x.round === r));
+  return `<div class="bracket">${rounds.map(r => `<div class="bcol"><h4>${esc(r)}</h4>${c.ties.filter(x => x.round === r).map(x => {
+    const two = x.legs.length > 1;
+    const side = (cl, g, pk) => `<div class="bt ${x.winner === cl ? 'win' : x.winner ? 'lose' : ''}">${clubLink(cl)}<b>${x.played ? g : ''}${x.pk ? `<small>(${pk})</small>` : ''}</b></div>`;
+    const legs = two ? `<div class="bd">${x.legs.map((m, i) => `第${i + 1}戦 ${m.home === x.a ? (m.counted ? m.hg + '-' + m.ag : '-') : (m.counted ? m.ag + '-' + m.hg : '-')}`).join('　')}${x.pk ? '　PK ' + x.pk[0] + '-' + x.pk[1] : ''}</div>` : (x.legs[0].date ? `<div class="bd">${dateHead(x.legs[0].date)}</div>` : '');
+    return `<div class="bm">${side(x.a, x.ga, x.pk ? x.pk[0] : '')}${side(x.b, x.gb, x.pk ? x.pk[1] : '')}${legs}</div>`;
   }).join('')}</div>`).join('')}</div>`;
 }
 
 function pageClubs() {
   const leagues = MODEL.comps.filter(c => c.type === 'league' && c.clubs.length);
   const latest = leagues[leagues.length - 1] || null;
-  const cur = latest ? new Set(latest.clubs) : new Set();
-  const byName = (a, b) => a.name.localeCompare(b.name);
-  const current = MODEL.clubs.filter(c => cur.has(c)).sort(byName);
-  const lastSeason = c => { const ms = MODEL.matches.filter(m => m.home === c || m.away === c); return ms.length ? ms[ms.length - 1].comp : null; };
-  const past = MODEL.clubs.filter(c => !cur.has(c)).sort(byName);
+  const season = latest ? latest.season : null;
+  const cur = latest ? leagues.filter(c => c.season === season).sort((a, b) => (a.div || 1) - (b.div || 1) || a.idx - b.idx) : [];
+  // within a season, a club shown once: in its highest division (latest stage)
+  const seen = new Set(); const groups = [];
+  for (const c of cur) { const list = c.table.map(r => r.club).filter(x => !seen.has(x)); list.forEach(x => seen.add(x)); if (list.length) groups.push({ c, list: list.sort((a, b) => a.name.localeCompare(b.name)) }); }
+  const lastComp = cl => { const ms = MODEL.matches.filter(m => m.home === cl || m.away === cl); return ms.length ? ms[ms.length - 1].comp : null; };
+  const past = MODEL.clubs.filter(c => !seen.has(c)).sort((a, b) => a.name.localeCompare(b.name));
   const tile = c => `<a class="clubtile" href="#club-${c.id}">${em(c, 'xl')}<span>${esc(c.name)}</span></a>`;
-  const pastTile = c => { const lc = lastSeason(c); return `<a class="clubtile off" href="#club-${c.id}">${em(c, 'xl')}<span>${esc(c.name)}</span><small>${lc ? '最終出場 ' + compName(lc) : '試合記録なし'}</small></a>`; };
+  const pastTile = c => { const lc = lastComp(c); return `<a class="clubtile off" href="#club-${c.id}">${em(c, 'xl')}<span>${esc(c.name)}</span><small>${lc ? '最終出場 ' + compName(lc) : '試合記録なし'}</small></a>`; };
   return `${crumb('クラブ')}<h1>クラブ</h1>
-  <section class="box">${sec(latest ? `${compName(latest)} 所属クラブ` : '所属クラブ')}${current.length ? `<div class="clubgrid">${current.map(tile).join('')}</div>` : empty('リーグ戦のデータがまだありません')}</section>
+  ${groups.map(g => `<section class="box">${sec(`${compName(g.c)} 所属クラブ`)}<div class="clubgrid">${g.list.map(tile).join('')}</div></section>`).join('') || `<section class="box">${empty('リーグ戦のデータがまだありません')}</section>`}
   ${past.length ? `<section class="box">${sec('過去の所属クラブ')}<div class="clubgrid">${past.map(pastTile).join('')}</div></section>` : ''}`;
 }
 
