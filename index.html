@@ -350,6 +350,7 @@ function buildModel(raw) {
     m.rn = roundNum(roundS);
     m.played = !!m.fw || (m.hg !== null && m.ag !== null);
     m.counted = m.played && !m.fw && m.hg !== null && m.ag !== null; // goals/records/elo
+    m.forf = !m.fw && m.counted && /没収|不戦/.test(kindS) ? (/没収/.test(kindS) ? '没収試合' : '不戦勝') : null; // scored 3-0 etc. but not a real match
     if (m.played) {
       if (m.fw) m.res = m.fw === 'H' ? 'H' : 'A';
       else m.res = m.hg > m.ag ? 'H' : m.hg < m.ag ? 'A' : 'D';
@@ -686,7 +687,7 @@ function streaksFor(model, club) {
   return best;
 }
 function records(model) {
-  const counted = model.matches.filter(m => m.counted);
+  const counted = model.matches.filter(m => m.counted && !m.forf);
   const topGoals = [...counted].sort((a, b) => (b.hg + b.ag) - (a.hg + a.ag) || a.seq - b.seq).slice(0, 5);
   const topMargin = [...counted].sort((a, b) => Math.abs(b.hg - b.ag) - Math.abs(a.hg - a.ag) || (b.hg + b.ag) - (a.hg + a.ag) || a.seq - b.seq).slice(0, 5);
   const streakRows = model.clubs.filter(c => c.active).map(c => ({ club: c, s: streaksFor(model, c) }));
@@ -802,7 +803,7 @@ function coefDetail(r) {
 function scoreHtml(m) {
   if (!m.played) return `<span class="vs">VS</span><span class="st">${m.date ? '' : '日程未定'}</span>`;
   if (m.fw) return `<span class="n">${m.fw === 'H' ? '○' : '●'}</span><span class="st">不戦</span><span class="n">${m.fw === 'A' ? '○' : '●'}</span>`;
-  return `<span class="n">${m.hg}</span><span class="st">試合終了</span><span class="n">${m.ag}</span>`;
+  return `<span class="n">${m.hg}</span><span class="st">${m.forf || '試合終了'}</span><span class="n">${m.ag}</span>`;
 }
 function matchRow(m) {
   const hw = m.played && m.adv === 'H', aw = m.played && m.adv === 'A';
@@ -932,7 +933,7 @@ function pageComp(i) {
 }
 function penNotes(c) {
   if (!c.pens.length) return '';
-  return `<div class="notes"><b>処分</b><ul>${c.pens.map(p => `<li>${esc(p.club.name)}　勝点${sgn(p.pts)}${p.rn !== null ? `（第${p.rn}節から）` : ''}${p.reason ? '　' + esc(p.reason) : ''}</li>`).join('')}</ul></div>`;
+  return `<div class="notes"><b>処分</b><ul>${c.pens.map(p => `<li>${esc(p.club.name)}${p.pts ? `　勝点${sgn(p.pts)}${p.rn !== null ? `（第${p.rn}節から）` : ''}` : ''}${p.reason ? '　' + esc(p.reason) : ''}</li>`).join('')}</ul></div>`;
 }
 function matrix(c) {
   const cl = c.table.map(r => r.club);
@@ -1068,8 +1069,8 @@ function pageRecords() {
   if (t === 'streak') body = `<div class="layout2"><section class="box">${sec('連勝')}${stable(R.streaks.win, '連勝')}</section><section class="box">${sec('無敗')}${stable(R.streaks.unbeaten, '試合')}</section><section class="box">${sec('連続無失点')}${stable(R.streaks.clean, '試合')}</section><section class="box">${sec('連敗')}${stable(R.streaks.loss, '連敗')}</section></div>`;
   if (t === 'season') body = `<div class="layout2"><section class="box">${sec('最多勝点')}${seas(R.season.pts, r => r.Pts)}</section><section class="box">${sec('最多勝利')}${seas(R.season.w, r => r.W)}</section><section class="box">${sec('最多得点')}${seas(R.season.gf, r => r.GF)}</section><section class="box">${sec('最少失点')}${seas(R.season.ga, r => r.GA)}</section></div>`;
   if (t === 'pens') {
-    const ps = MODEL.pens; const fw = MODEL.matches.filter(m => m.fw);
-    body = `<section class="box">${sec('処分')}${ps.length ? wrap(`<table class="st"><thead><tr><th class="l">大会</th><th class="l">クラブ</th><th>勝点</th><th class="hm">適用節</th><th class="l">内容</th></tr></thead><tbody>${ps.map(p => `<tr><td class="l"><a href="#comp-${p.comp.idx}">${compName(p.comp)}</a></td><td class="l">${clubLink(p.club)}</td><td class="num b down">${sgn(p.pts)}</td><td class="num hm">${p.rn ?? '—'}</td><td class="l">${esc(p.reason)}</td></tr>`).join('')}</tbody></table>`) : empty('処分はありません')}</section>
+    const ps = MODEL.pens; const fw = MODEL.matches.filter(m => m.fw || m.forf);
+    body = `<section class="box">${sec('処分')}${ps.length ? wrap(`<table class="st"><thead><tr><th class="l">大会</th><th class="l">クラブ</th><th>勝点</th><th class="hm">適用節</th><th class="l">内容</th></tr></thead><tbody>${ps.map(p => `<tr><td class="l"><a href="#comp-${p.comp.idx}">${compName(p.comp)}</a></td><td class="l">${clubLink(p.club)}</td><td class="num b down">${p.pts ? sgn(p.pts) : '—'}</td><td class="num hm">${p.rn ?? '—'}</td><td class="l">${esc(p.reason)}</td></tr>`).join('')}</tbody></table>`) : empty('処分はありません')}</section>
       <section class="box">${sec('不戦勝・不戦敗')}${matchesByDate(fw)}</section>`;
   }
   return `${crumb('記録')}<h1>記録</h1>${tabs('rec', [['match', '試合'], ['streak', '連続記録'], ['season', 'シーズン記録'], ['pens', '処分・不戦']], t)}${body}`;
