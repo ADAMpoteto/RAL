@@ -150,10 +150,12 @@ tr.sub td{background:#f7f8fa!important;text-align:left;white-space:normal;paddin
 .bt.win{font-weight:700}.bt.win .cl{font-weight:700}.bt.lose{color:var(--sub)}
 .bd{font-size:11px;color:var(--sub);padding:3px 10px}
 /* clubs */
-.clubgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
-.clubtile{display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px 10px;background:var(--box);font-weight:700;text-align:center}
+.clubgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));border-top:1px solid var(--line);border-left:1px solid var(--line)}
+.clubtile{border-right:1px solid var(--line);border-bottom:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px 10px;background:var(--box);font-weight:700;text-align:center}
 .clubtile:hover{background:#f7f8fa;text-decoration:none}
-.clubtile.off{opacity:.5}
+.clubtile.off{color:var(--sub)}
+.clubtile.off .em{filter:grayscale(.6);opacity:.75}
+.clubtile small{font-size:11px;font-weight:400;color:var(--sub);line-height:1.3}
 .clubhead{display:flex;gap:22px;align-items:center;background:var(--box);border:1px solid var(--line);border-top:4px solid var(--c);padding:18px 20px;margin-bottom:12px}
 .clubhead h1{margin:0 0 8px;font-size:26px}
 .facts{display:flex;flex-wrap:wrap;gap:6px 26px;margin:0}
@@ -893,9 +895,18 @@ function bracket(c) {
 }
 
 function pageClubs() {
-  const list = MODEL.clubs.filter(c => c.active).sort((a, b) => a.name.localeCompare(b.name));
-  const inactive = MODEL.clubs.filter(c => !c.active);
-  return `${crumb('クラブ')}<h1>クラブ</h1><div class="clubgrid">${list.map(c => `<a class="clubtile" href="#club-${c.id}">${em(c, 'xl')}<span>${esc(c.name)}</span></a>`).join('')}${inactive.map(c => `<a class="clubtile off" href="#club-${c.id}">${em(c, 'xl')}<span>${esc(c.name)}</span></a>`).join('')}</div>`;
+  const leagues = MODEL.comps.filter(c => c.type === 'league' && c.clubs.length);
+  const latest = leagues[leagues.length - 1] || null;
+  const cur = latest ? new Set(latest.clubs) : new Set();
+  const byName = (a, b) => a.name.localeCompare(b.name);
+  const current = MODEL.clubs.filter(c => cur.has(c)).sort(byName);
+  const lastSeason = c => { const ms = MODEL.matches.filter(m => m.home === c || m.away === c); return ms.length ? ms[ms.length - 1].comp : null; };
+  const past = MODEL.clubs.filter(c => !cur.has(c)).sort(byName);
+  const tile = c => `<a class="clubtile" href="#club-${c.id}">${em(c, 'xl')}<span>${esc(c.name)}</span></a>`;
+  const pastTile = c => { const lc = lastSeason(c); return `<a class="clubtile off" href="#club-${c.id}">${em(c, 'xl')}<span>${esc(c.name)}</span><small>${lc ? '最終出場 ' + compName(lc) : '試合記録なし'}</small></a>`; };
+  return `${crumb('クラブ')}<h1>クラブ</h1>
+  <section class="box">${sec(latest ? `${compName(latest)} 所属クラブ` : '所属クラブ')}${current.length ? `<div class="clubgrid">${current.map(tile).join('')}</div>` : empty('リーグ戦のデータがまだありません')}</section>
+  ${past.length ? `<section class="box">${sec('過去の所属クラブ')}<div class="clubgrid">${past.map(pastTile).join('')}</div></section>` : ''}`;
 }
 
 function pageClub(id) {
