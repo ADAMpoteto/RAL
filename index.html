@@ -270,7 +270,7 @@ function emblemUrl(v) {
   const drive = s.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:export=\w+&)?id=)([\w-]+)/);
   if (drive) return `https://drive.google.com/thumbnail?id=${drive[1]}&sz=w256`;
   if (/^https?:\/\//i.test(s) || /^data:image\//.test(s)) return s;
-  return 'emblems/' + s.replace(/^\/+/, '').replace(/^emblems\//, '');
+  return 'emblems/' + s.replace(/^\/+/, '').replace(/^emblems\//, '').split('/').map(encodeURIComponent).join('/');
 }
 
 function parseSettings(rows) {
