@@ -123,6 +123,15 @@ tr.sub td{background:#f7f8fa!important;text-align:left;white-space:normal;paddin
 .rs{font-size:15px;font-weight:700;margin-right:2px}
 .rs.W{color:var(--red)}.rs.D{color:#555}.rs.L{color:#222}
 .recm{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:2px}.recm b{font-family:var(--num);font-size:16px}
+.vsf{align-items:end}.vsf .swap{font-size:16px;padding:4px 10px;margin-bottom:4px}
+.vshead{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;padding:6px 0 14px}
+.vsclub{display:flex;flex-direction:column;align-items:center;gap:8px;font-weight:700;text-align:center}
+.vsrec{display:grid;grid-template-columns:repeat(3,auto);grid-template-rows:auto auto;grid-auto-flow:column;column-gap:18px;text-align:center}
+.vsrec b{font-family:var(--num);font-size:40px;line-height:1}.vsrec span{font-size:12px;color:var(--sub)}
+.vsbar{display:flex;height:8px;margin:0 0 14px;background:var(--band)}.vsbar i{display:block;height:100%}
+.vst{width:100%;max-width:760px;margin:0 auto}.vsbar,.vshead{max-width:760px;margin-left:auto;margin-right:auto}.vst th{font-size:12px;color:var(--sub);font-weight:700;padding:8px 6px;text-align:center;border-bottom:1px solid var(--line);width:34%}
+.vst td{padding:8px 6px;border-bottom:1px solid var(--line);font-weight:700;font-family:var(--num);font-size:16px;width:33%}
+.vst td.vA{text-align:right}.vst td.vB{text-align:left}.vst td small{display:block;font-family:var(--body);font-weight:400;font-size:11px;color:var(--sub)}
 .empty{color:var(--sub);padding:14px 0;margin:0}
 /* competition page */
 .pagehead{background:var(--box);border:1px solid var(--line);border-top:3px solid var(--red);padding:14px 18px;margin-bottom:12px}
@@ -226,7 +235,7 @@ tr.sub td{background:#f7f8fa!important;text-align:left;white-space:normal;paddin
   <div id="status" class="status"></div>
 </div></header>
 <nav class="gnav" aria-label="メインメニュー"><div class="in">
-  <a href="#home" data-nav="home">ホーム</a><a href="#matches" data-nav="matches">日程・結果</a><a href="#comps" data-nav="standings">順位表</a><a href="#comps" data-nav="comps">大会</a><a href="#clubs" data-nav="clubs">クラブ</a><a href="#ranking" data-nav="ranking">ランキング</a><a href="#records" data-nav="records">記録</a>
+  <a href="#home" data-nav="home">ホーム</a><a href="#matches" data-nav="matches">日程・結果</a><a href="#comps" data-nav="standings">順位表</a><a href="#comps" data-nav="comps">大会</a><a href="#clubs" data-nav="clubs">クラブ</a><a href="#vs" data-nav="vs">対戦</a><a href="#ranking" data-nav="ranking">ランキング</a><a href="#records" data-nav="records">記録</a>
 </div></nav>
 <div class="rainbow"></div>
 <main id="main"></main>
@@ -624,11 +633,11 @@ function streaksFor(model, club) {
 }
 function records(model) {
   const counted = model.matches.filter(m => m.counted);
-  const topGoals = [...counted].sort((a, b) => (b.hg + b.ag) - (a.hg + a.ag) || a.seq - b.seq).slice(0, 10);
-  const topMargin = [...counted].sort((a, b) => Math.abs(b.hg - b.ag) - Math.abs(a.hg - a.ag) || (b.hg + b.ag) - (a.hg + a.ag) || a.seq - b.seq).slice(0, 10);
+  const topGoals = [...counted].sort((a, b) => (b.hg + b.ag) - (a.hg + a.ag) || a.seq - b.seq).slice(0, 5);
+  const topMargin = [...counted].sort((a, b) => Math.abs(b.hg - b.ag) - Math.abs(a.hg - a.ag) || (b.hg + b.ag) - (a.hg + a.ag) || a.seq - b.seq).slice(0, 5);
   const streakRows = model.clubs.filter(c => c.active).map(c => ({ club: c, s: streaksFor(model, c) }));
   const streaks = {};
-  for (const k of ['win', 'unbeaten', 'loss', 'winless', 'clean']) streaks[k] = streakRows.filter(x => x.s[k].n >= 2).sort((a, b) => b.s[k].n - a.s[k].n).slice(0, 8).map(x => ({ club: x.club, ...x.s[k] }));
+  for (const k of ['win', 'unbeaten', 'loss', 'winless', 'clean']) streaks[k] = streakRows.filter(x => x.s[k].n >= 2).sort((a, b) => b.s[k].n - a.s[k].n).slice(0, 5).map(x => ({ club: x.club, ...x.s[k] }));
   const seasonRows = [];
   for (const c of model.comps) if (c.type === 'league' && c.played) for (const r of c.table) seasonRows.push({ comp: c, ...r, PtsRaw: r.Pts - r.adj });
   const by = (f, asc) => [...seasonRows].filter(r => r.P > 0).sort((a, b) => asc ? f(a) - f(b) : f(b) - f(a)).slice(0, 5);
@@ -996,6 +1005,41 @@ function pageRecords() {
   return `${crumb('記録')}<h1>記録</h1>${tabs('rec', [['match', '試合'], ['streak', '連続記録'], ['season', 'シーズン記録'], ['pens', '処分・不戦']], t)}${body}`;
 }
 
+function pageVs(aId, bId) {
+  const M = MODEL;
+  const lg = M.comps.filter(c => c.type === 'league' && c.clubs.length);
+  const latest = lg[lg.length - 1];
+  const pool = (latest ? latest.table.map(r => r.club) : M.clubs.filter(c => c.active));
+  let A = M.clubs[aId], B = M.clubs[bId];
+  if (!A) A = pool[0]; if (!B || B === A) B = pool.find(c => c !== A);
+  const clubs = M.clubs.filter(c => c.active).sort((x, y) => x.name.localeCompare(y.name));
+  const sel = (id, cur) => `<select id="${id}" data-vsel="${id}">${clubs.map(c => `<option value="${c.id}" ${c === cur ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>`;
+  const head = `${crumb('対戦')}<h1>対戦</h1><div class="filters vsf"><label>クラブA${sel('vs-a', A)}</label><button class="lk swap" data-swap="1" aria-label="入れ替え">⇄</button><label>クラブB${sel('vs-b', B)}</label></div>`;
+  if (!A || !B) return head + empty('クラブが足りません');
+  const ms = M.matches.filter(m => m.played && ((m.home === A && m.away === B) || (m.home === B && m.away === A)));
+  const ps = ms.map(m => persp(m, A));
+  const w = ps.filter(p => p.r === 'W').length, d = ps.filter(p => p.r === 'D').length, l = ps.filter(p => p.r === 'L').length;
+  const gf = ps.filter(p => p.m.counted).reduce((s, p) => s + p.gf, 0), ga = ps.filter(p => p.m.counted).reduce((s, p) => s + p.ga, 0);
+  const n = ms.length;
+  const pctw = x => n ? (x / n * 100) : 0;
+  const bigWin = side => { const c = ps.filter(p => p.m.counted && (side === 'A' ? p.gf > p.ga : p.ga > p.gf)).sort((x, y) => Math.abs(y.gf - y.ga) - Math.abs(x.gf - x.ga) || (y.gf + y.ga) - (x.gf + x.ga))[0]; return c ? `${c.m.hg} - ${c.m.ag}<small>${compName(c.m.comp)} ${roundLabel(c.m)}</small>` : '—'; };
+  const streak = r => { let best = 0, cur = 0; for (const p of ps) { if (p.r === r) { cur++; best = Math.max(best, cur); } else cur = 0; } return best; };
+  const byType = t => { const q = ps.filter(p => p.m.comp.type === t); return `${q.filter(p => p.r === 'W').length}勝 ${q.filter(p => p.r === 'D').length}分 ${q.filter(p => p.r === 'L').length}敗`; };
+  const row = (label, a, b) => `<tr><td class="vA">${a}</td><th>${label}</th><td class="vB">${b}</td></tr>`;
+  const card = c => `<a class="vsclub" href="#club-${c.id}">${em(c, 'xl')}<span>${esc(c.name)}</span></a>`;
+  return head + `<section class="box vsbox">
+    <div class="vshead">${card(A)}<div class="vsrec"><b>${w}</b><span>勝</span><b>${d}</b><span>分</span><b>${l}</b><span>敗</span></div>${card(B)}</div>
+    ${n ? `<div class="vsbar"><i style="width:${pctw(w)}%;background:${color(A)}"></i><i style="width:${pctw(d)}%;background:#c9cdd3"></i><i style="width:${pctw(l)}%;background:${color(B)}"></i></div>
+    <table class="vst"><tbody>
+      ${row('試合', n, n)}${row('勝利', w, l)}${row('総得点', gf, ga)}${row('1試合平均得点', (gf / n).toFixed(2), (ga / n).toFixed(2))}
+      ${row('最大得点差の勝利', bigWin('A'), bigWin('B'))}${row('最長連勝', streak('W') || '—', streak('L') || '—')}
+      ${row('リーグ戦', byType('league'), byType('league').replace(/(\d+)勝 (\d+)分 (\d+)敗/, '$3勝 $2分 $1敗'))}
+      ${ps.some(p => p.m.comp.type === 'cup') ? row('カップ戦', byType('cup'), byType('cup').replace(/(\d+)勝 (\d+)分 (\d+)敗/, '$3勝 $2分 $1敗')) : ''}
+    </tbody></table>` : empty('この2クラブの対戦はまだありません')}
+  </section>
+  ${n ? `<section class="box">${sec('全対戦')}${matchesByDate(ms)}</section>` : ''}`;
+}
+
 // ---------- router ----------
 function route() {
   const h = (location.hash || '#home').slice(1);
@@ -1011,13 +1055,15 @@ function route() {
   else if (/^club-\d+$/.test(h)) { html = pageClub(+h.slice(5)); nav = 'clubs'; }
   else if (h === 'ranking') html = pageRanking();
   else if (h === 'records') html = pageRecords();
+  else if (h === 'vs') html = pageVs();
+  else if (/^vs-\d+-\d+$/.test(h)) { const [, a, b] = h.split('-').map(Number); html = pageVs(a, b); nav = 'vs'; }
   else { html = pageHome(); nav = 'home'; }
   $('#main').innerHTML = html;
   document.querySelectorAll('nav.gnav a').forEach(a => a.classList.toggle('on', a.dataset.nav === nav));
 }
 let lastHash = null;
 window.addEventListener('hashchange', () => { if (location.hash !== lastHash && !ui.keepOpen) ui.h2hOpen = null; ui.keepOpen = false; lastHash = location.hash; route(); window.scrollTo(0, 0); });
-document.addEventListener('change', e => { const s = e.target.closest('[data-f]'); if (s) { ui[s.dataset.f] = s.value; route(); } });
+document.addEventListener('change', e => { const s = e.target.closest('[data-f]'); if (s) { ui[s.dataset.f] = s.value; route(); return; } if (e.target.closest('[data-vsel]')) location.hash = `vs-${$('#vs-a').value}-${$('#vs-b').value}`; });
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-tab]');
   if (b) {
@@ -1032,7 +1078,8 @@ document.addEventListener('click', e => {
   }
   if (e.target.closest('[data-sort]')) { ui.mOrder = ui.mOrder === 'desc' ? 'asc' : 'desc'; route(); return; }
   const vs = e.target.closest('[data-vs]');
-  if (vs) { const [h, a] = vs.dataset.vs.split('-').map(Number); ui.clubTab = 'h2h'; ui.h2hOpen = a; ui.keepOpen = true; if (location.hash === '#club-' + h) { ui.keepOpen = false; route(); } else location.hash = 'club-' + h; return; }
+  if (vs) { location.hash = 'vs-' + vs.dataset.vs; return; }
+  if (e.target.closest('[data-swap]')) { const a = $('#vs-a').value, b = $('#vs-b').value; location.hash = `vs-${b}-${a}`; return; }
   const hl = e.target.closest('[data-hl]');
   if (hl) { const ch = hl.closest('.chart'); const on = hl.classList.toggle('on'); ch.querySelectorAll('.legend button').forEach(x => { if (x !== hl) x.classList.remove('on'); }); ch.classList.toggle('focus', on); ch.querySelectorAll('.ser').forEach(g => g.classList.toggle('hi', on && g.dataset.s === hl.dataset.hl)); return; }
   const co = e.target.closest('[data-coef]');
