@@ -170,12 +170,50 @@ tr.sub td{background:#f7f8fa!important;text-align:left;white-space:normal;paddin
 .legend i{width:12px;height:3px}
 @media (max-width:860px){
   .layout,.layout2{grid-template-columns:minmax(0,1fr)}
-  .match{grid-template-columns:minmax(0,1fr) 100px minmax(0,1fr);gap:6px}
-  .score .n{font-size:22px}
-  .side{font-size:13px}
   .clubhead{flex-direction:column;align-items:flex-start}
-  .filters select{min-width:0;width:100%}.filters label{flex:1}
   .brand span{display:none}
+}
+@media (max-width:600px){
+  html,body{font-size:13px}
+  .top .in,.gnav .in,main{padding-left:10px;padding-right:10px}
+  .gnav .in{display:grid;grid-template-columns:repeat(4,1fr);overflow:visible;padding:0}
+  .gnav a{padding:9px 2px;text-align:center;font-size:12.5px}
+  h1{font-size:20px}
+  .box{padding:10px}
+  .hm{display:none}
+  .st th{padding:6px 3px;font-size:11px}
+  .st td{padding:7px 3px}
+  .st td.l{white-space:normal}
+  .st .cl{gap:5px}
+  .st .em{width:20px;height:20px;font-size:9px}
+  .st td.num{font-size:13px}
+  .lk{padding:1px 5px}
+  .tabs button{padding:8px 10px;font-size:13px}
+  .match{grid-template-columns:minmax(0,1fr) 84px minmax(0,1fr);gap:4px;padding:8px 0 5px}
+  .side{gap:5px;font-size:12.5px}
+  .side .nm{white-space:normal;overflow:visible;line-height:1.25;word-break:break-word}
+  .side .em{width:20px;height:20px;font-size:9px}
+  .score .n{font-size:20px}
+  .score .st{padding:0 3px;font-size:10px}
+  .filters{padding:10px}
+  .filters select{min-width:0;width:100%}.filters label{flex:1 1 140px}
+  .sortbtn{margin-left:0}
+  .mxt{min-width:0;table-layout:fixed}
+  .mxt th.l{width:32px;padding:3px}
+  .mxt th.l .cl>span:not(.em){display:none}
+  .mxt th .em,.mxt th.l .em{width:20px;height:20px;font-size:8px}
+  .mxt td{padding:1px}
+  .mx{font-size:11px;padding:1px 0}
+  .bracket{flex-direction:column;overflow:visible}
+  .bcol{min-width:0}
+  .clubhead{padding:14px}
+  .clubhead .em.xxl{width:64px;height:64px;font-size:22px}
+  .clubgrid{grid-template-columns:repeat(3,1fr)}
+  .clubtile{padding:14px 6px;font-size:12px}
+  .clubtile .em.xl{width:48px;height:48px;font-size:17px}
+  .facts{gap:6px 18px}
+  .pagehead{padding:12px}
+  .meta{gap:8px}
 }
 </style>
 </head>
@@ -734,8 +772,8 @@ function standings(rows, opts = {}) {
   if (!rows.length) return empty('まだ試合がありません');
   if (opts.compact) return wrap(`<table class="st"><thead><tr><th>順位</th><th class="l">クラブ</th><th>試合</th><th>得失点</th><th>勝点</th></tr></thead><tbody>
     ${rows.map(r => `<tr><td class="num">${r.pos}</td><td class="l">${clubLink(r.club)}</td><td class="num">${r.P}</td><td class="num">${sgn(r.GD)}</td><td class="num b">${r.Pts}</td></tr>`).join('')}</tbody></table>`);
-  return wrap(`<table class="st"><thead><tr><th>順位</th><th class="l">クラブ</th><th>勝点</th><th>試合</th><th>勝</th><th>分</th><th>敗</th><th>得点</th><th>失点</th><th>得失点</th>${opts.rate ? '<th>勝率</th>' : ''}</tr></thead><tbody>
-  ${rows.map(r => `<tr class="${opts.zone && r.pos <= opts.zone ? 'zone' : ''}"><td class="num">${r.pos}</td><td class="l">${clubLink(r.club)}${r.adj ? ` <span class="adj" title="${esc(r.pens.map(p => p.reason || '処分').join(' / '))}">${sgn(r.adj)}</span>` : ''}</td><td class="num b">${r.Pts}</td><td class="num">${r.P}</td><td class="num">${r.W}</td><td class="num">${r.D}</td><td class="num">${r.L}</td><td class="num">${r.GF}</td><td class="num">${r.GA}</td><td class="num">${sgn(r.GD)}</td>${opts.rate ? `<td class="num">${pct(r.rate)}</td>` : ''}</tr>`).join('')}
+  return wrap(`<table class="st"><thead><tr><th>順位</th><th class="l">クラブ</th><th>勝点</th><th>試合</th><th>勝</th><th>分</th><th>敗</th><th class="hm">得点</th><th class="hm">失点</th><th>得失点</th>${opts.rate ? '<th class="hm">勝率</th>' : ''}</tr></thead><tbody>
+  ${rows.map(r => `<tr class="${opts.zone && r.pos <= opts.zone ? 'zone' : ''}"><td class="num">${r.pos}</td><td class="l">${clubLink(r.club)}${r.adj ? ` <span class="adj" title="${esc(r.pens.map(p => p.reason || '処分').join(' / '))}">${sgn(r.adj)}</span>` : ''}</td><td class="num b">${r.Pts}</td><td class="num">${r.P}</td><td class="num">${r.W}</td><td class="num">${r.D}</td><td class="num">${r.L}</td><td class="num hm">${r.GF}</td><td class="num hm">${r.GA}</td><td class="num">${sgn(r.GD)}</td>${opts.rate ? `<td class="num hm">${pct(r.rate)}</td>` : ''}</tr>`).join('')}
   </tbody></table>`);
 }
 
@@ -775,7 +813,7 @@ function pageHome() {
       ${next.length ? `<section class="box">${sec('次の試合', '<a class="more" href="#matches">日程・結果一覧</a>')}${matchesByDate(next, 'asc')}</section>` : ''}
       <section class="box">${sec('最新の試合結果', '<a class="more" href="#matches">日程・結果一覧</a>')}${matchesByDate(latest)}</section>
       <section class="box">${sec('歴代優勝', '<a class="more" href="#comps">大会一覧</a>')}
-        ${comps.length ? wrap(`<table class="st"><thead><tr><th class="l">シーズン</th><th class="l">大会</th><th class="l">優勝</th><th class="l">準優勝</th></tr></thead><tbody>${comps.map(c => `<tr><td class="l">${esc(c.season) || '—'}</td><td class="l">${typeBadge(c)} <a href="#comp-${c.idx}">${esc(c.name)}</a></td><td class="l">${clubLink(c.champion)}</td><td class="l">${c.type === 'cup' ? (c.runnerUp ? clubLink(c.runnerUp) : '') : c.table[1] ? clubLink(c.table[1].club) : ''}</td></tr>`).join('')}</tbody></table>`) : empty('終了した大会はまだありません')}
+        ${comps.length ? wrap(`<table class="st"><thead><tr><th class="l">シーズン</th><th class="l">大会</th><th class="l">優勝</th><th class="l hm">準優勝</th></tr></thead><tbody>${comps.map(c => `<tr><td class="l">${esc(c.season) || '—'}</td><td class="l">${typeBadge(c)} <a href="#comp-${c.idx}">${esc(c.name)}</a></td><td class="l">${clubLink(c.champion)}</td><td class="l hm">${c.type === 'cup' ? (c.runnerUp ? clubLink(c.runnerUp) : '') : c.table[1] ? clubLink(c.table[1].club) : ''}</td></tr>`).join('')}</tbody></table>`) : empty('終了した大会はまだありません')}
       </section>
     </div>
     <aside class="side-col">
@@ -805,7 +843,7 @@ function pageComps() {
   const f = ui.compFilter;
   const list = [...MODEL.comps].reverse().filter(c => f === 'all' || c.type === f);
   return `${crumb('大会')}<h1>大会</h1>${tabs('compFilter', [['all', '全て'], ['league', 'リーグ'], ['cup', 'カップ']], f)}
-  <div class="box">${list.length ? wrap(`<table class="st"><thead><tr><th class="l">シーズン</th><th class="l">大会</th><th>状態</th><th>試合</th><th>得点</th><th class="l">優勝 / 首位</th></tr></thead><tbody>${list.map(c => `<tr><td class="l">${esc(c.season) || '—'}</td><td class="l">${typeBadge(c)} <a href="#comp-${c.idx}">${esc(c.name)}</a></td><td>${c.done ? '終了' : '<span class="live">開催中</span>'}</td><td class="num">${c.played}</td><td class="num">${c.goals}</td><td class="l">${c.champion ? clubLink(c.champion) : c.type === 'league' && c.played && c.table[0] ? clubLink(c.table[0].club) + ' <small class="muted">首位</small>' : '—'}</td></tr>`).join('')}</tbody></table>`) : empty('該当する大会はありません')}</div>`;
+  <div class="box">${list.length ? wrap(`<table class="st"><thead><tr><th class="l">シーズン</th><th class="l">大会</th><th class="hm">状態</th><th class="hm">試合</th><th class="hm">得点</th><th class="l">優勝 / 首位</th></tr></thead><tbody>${list.map(c => `<tr><td class="l">${esc(c.season) || '—'}</td><td class="l">${typeBadge(c)} <a href="#comp-${c.idx}">${esc(c.name)}</a></td><td class="hm">${c.done ? '終了' : '<span class="live">開催中</span>'}</td><td class="num hm">${c.played}</td><td class="num hm">${c.goals}</td><td class="l">${c.champion ? clubLink(c.champion) : c.type === 'league' && c.played && c.table[0] ? clubLink(c.table[0].club) + ' <small class="muted">首位</small>' : '—'}</td></tr>`).join('')}</tbody></table>`) : empty('該当する大会はありません')}</div>`;
 }
 
 function pageComp(i) {
@@ -839,7 +877,7 @@ function matrix(c) {
     if (!ms.length) return '<td></td>';
     return `<td>${ms.map(m => { const r = m.played ? (m.res === 'D' ? 'D' : m.res === 'H' ? 'W' : 'L') : ''; return `<span class="mx ${r}">${m.played ? (m.counted ? m.hg + '-' + m.ag : '不戦') : '-'}</span>`; }).join('')}</td>`;
   };
-  return wrap(`<table class="mxt"><thead><tr><th class="l">ホーム ＼ アウェイ</th>${cl.map(x => `<th title="${esc(x.name)}">${em(x)}</th>`).join('')}</tr></thead><tbody>${cl.map(h => `<tr><th class="l">${clubLink(h)}</th>${cl.map(a => cell(h, a)).join('')}</tr>`).join('')}</tbody></table>`);
+  return wrap(`<table class="mxt"><thead><tr><th class="l"><span class="hm">ホーム ＼ アウェイ</span></th>${cl.map(x => `<th title="${esc(x.name)}">${em(x)}</th>`).join('')}</tr></thead><tbody>${cl.map(h => `<tr><th class="l">${clubLink(h)}</th>${cl.map(a => cell(h, a)).join('')}</tr>`).join('')}</tbody></table>`);
 }
 function progChart(c) {
   if (c.progress.length < 2) return empty('2節以上の結果が入ると表示されます');
@@ -870,16 +908,16 @@ function pageClub(id) {
   let body;
   if (t === 'comp') {
     const rows = MODEL.comps.filter(x => x.result.has(c)).reverse();
-    body = rows.length ? wrap(`<table class="st"><thead><tr><th class="l">シーズン</th><th class="l">大会</th><th>成績</th><th>勝点</th><th>試合</th><th>勝</th><th>分</th><th>敗</th><th>得点</th><th>失点</th></tr></thead><tbody>${rows.map(x => {
+    body = rows.length ? wrap(`<table class="st"><thead><tr><th class="l">大会</th><th>成績</th><th>勝点</th><th class="hm">試合</th><th>勝</th><th>分</th><th>敗</th><th class="hm">得点</th><th class="hm">失点</th></tr></thead><tbody>${rows.map(x => {
       const r = x.result.get(c); const row = r.row;
       const lab = x.type === 'league' ? `${r.pos}位<small class="muted">/${r.n}</small>` : esc(r.label);
       const gold = (x.type === 'league' && r.pos === 1 && x.done) || r.label === '優勝';
-      return `<tr><td class="l">${esc(x.season) || '—'}</td><td class="l">${typeBadge(x)} <a href="#comp-${x.idx}">${esc(x.name)}</a></td><td class="${gold ? 'gold b' : 'b'}">${lab}</td><td class="num b">${row.Pts}${row.adj ? ` <span class="adj">${sgn(row.adj)}</span>` : ''}</td><td class="num">${row.P}</td><td class="num">${row.W}</td><td class="num">${row.D}</td><td class="num">${row.L}</td><td class="num">${row.GF}</td><td class="num">${row.GA}</td></tr>`;
+      return `<tr><td class="l">${typeBadge(x)} <a href="#comp-${x.idx}">${compName(x)}</a></td><td class="${gold ? 'gold b' : 'b'}">${lab}</td><td class="num b">${row.Pts}${row.adj ? ` <span class="adj">${sgn(row.adj)}</span>` : ''}</td><td class="num hm">${row.P}</td><td class="num">${row.W}</td><td class="num">${row.D}</td><td class="num">${row.L}</td><td class="num hm">${row.GF}</td><td class="num hm">${row.GA}</td></tr>`;
     }).join('')}</tbody></table>`) : empty('大会成績はまだありません');
   } else {
     const h = headToHead(MODEL, c);
-    body = h.length ? wrap(`<table class="st"><thead><tr><th class="l">対戦相手</th><th>試合</th><th>勝</th><th>分</th><th>敗</th><th>得点</th><th>失点</th><th>勝率</th><th class="l">直近5試合</th><th></th></tr></thead><tbody>${h.map(r => `
-      <tr><td class="l">${clubLink(r.opp)}</td><td class="num">${r.P}</td><td class="num">${r.W}</td><td class="num">${r.D}</td><td class="num">${r.L}</td><td class="num">${r.GF}</td><td class="num">${r.GA}</td><td class="num">${pct(r.rate)}</td><td class="l">${r.list.slice(-5).map(p => mark(p.r)).join('')}</td><td><button class="lk" data-h2h="${r.opp.id}">${ui.h2hOpen === r.opp.id ? '閉じる' : '試合一覧'}</button></td></tr>
+    body = h.length ? wrap(`<table class="st"><thead><tr><th class="l">対戦相手</th><th>試合</th><th>勝</th><th>分</th><th>敗</th><th class="hm">得点</th><th class="hm">失点</th><th class="hm">勝率</th><th class="l hm">直近5試合</th><th></th></tr></thead><tbody>${h.map(r => `
+      <tr><td class="l">${clubLink(r.opp)}</td><td class="num">${r.P}</td><td class="num">${r.W}</td><td class="num">${r.D}</td><td class="num">${r.L}</td><td class="num hm">${r.GF}</td><td class="num hm">${r.GA}</td><td class="num hm">${pct(r.rate)}</td><td class="l hm">${r.list.slice(-5).map(p => mark(p.r)).join('')}</td><td><button class="lk" data-h2h="${r.opp.id}">${ui.h2hOpen === r.opp.id ? '閉じる' : '試合一覧'}</button></td></tr>
       ${ui.h2hOpen === r.opp.id ? `<tr class="sub"><td colspan="10">${matchesByDate(r.list.map(p => p.m))}</td></tr>` : ''}`).join('')}</tbody></table>`) : empty('対戦成績はまだありません');
   }
   const s = streaksFor(MODEL, c);
@@ -913,7 +951,7 @@ function pageRanking() {
   if (t === 'coef') {
     const C = MODEL.coef; const ss = C.seasons;
     const cnt = (c, k) => c.titles.filter(x => x.kind === k).length;
-    body = C.ranked.length ? wrap(`<table class="st"><thead><tr><th>順位</th><th class="l">クラブ</th><th>ポイント</th>${ss.map(x => `<th>${esc(x.label)}</th>`).join('')}<th>リーグ優勝</th><th>カップ優勝</th><th></th></tr></thead><tbody>${C.ranked.map(r => `<tr><td class="num">${r.rank}</td><td class="l">${clubLink(r.club)}</td><td class="num b">${fmtC(r.total)}</td>${ss.map(x => `<td class="num">${r.by.has(x.key) ? fmtC(r.by.get(x.key)) : '—'}</td>`).join('')}<td class="num">${cnt(r.club, 'リーグ優勝') || '—'}</td><td class="num">${cnt(r.club, 'カップ優勝') || '—'}</td><td><button class="lk" data-coef="${r.club.id}">${ui.coefOpen === r.club.id ? '閉じる' : '内訳'}</button></td></tr>
+    body = C.ranked.length ? wrap(`<table class="st"><thead><tr><th>順位</th><th class="l">クラブ</th><th>ポイント</th>${ss.map(x => `<th class="hm">${esc(x.label)}</th>`).join('')}<th class="hm">リーグ優勝</th><th class="hm">カップ優勝</th><th></th></tr></thead><tbody>${C.ranked.map(r => `<tr><td class="num">${r.rank}</td><td class="l">${clubLink(r.club)}</td><td class="num b">${fmtC(r.total)}</td>${ss.map(x => `<td class="num hm">${r.by.has(x.key) ? fmtC(r.by.get(x.key)) : '—'}</td>`).join('')}<td class="num hm">${cnt(r.club, 'リーグ優勝') || '—'}</td><td class="num hm">${cnt(r.club, 'カップ優勝') || '—'}</td><td><button class="lk" data-coef="${r.club.id}">${ui.coefOpen === r.club.id ? '閉じる' : '内訳'}</button></td></tr>
       ${ui.coefOpen === r.club.id ? `<tr class="sub"><td colspan="${ss.length + 6}">${coefDetail(r)}</td></tr>` : ''}`).join('')}</tbody></table>`) : empty('試合がまだありません');
   }
   if (t === 'elo') {
@@ -929,16 +967,16 @@ function pageRanking() {
 
 function pageRecords() {
   const R = records(MODEL), t = ui.recTab;
-  const mtable = (ms, f, head) => ms.length ? wrap(`<table class="st"><thead><tr><th>${head}</th><th class="l">日付</th><th class="l">大会</th><th class="r">ホーム</th><th>スコア</th><th class="l">アウェイ</th></tr></thead><tbody>${ms.map(m => `<tr><td class="num b">${f(m)}</td><td class="l">${fmtDate(m.date) || '—'}</td><td class="l"><a href="#comp-${m.comp.idx}">${compName(m.comp)}</a> ${roundLabel(m)}</td><td class="r">${clubLink(m.home)}</td><td class="num b">${m.hg} - ${m.ag}</td><td class="l">${clubLink(m.away)}</td></tr>`).join('')}</tbody></table>`) : empty('—');
+  const mtable = (ms, f, head) => ms.length ? wrap(`<table class="st"><thead><tr><th>${head}</th><th class="l hm">日付</th><th class="l hm">大会</th><th class="r">ホーム</th><th>スコア</th><th class="l">アウェイ</th></tr></thead><tbody>${ms.map(m => `<tr><td class="num b">${f(m)}</td><td class="l hm">${fmtDate(m.date) || '—'}</td><td class="l hm"><a href="#comp-${m.comp.idx}">${compName(m.comp)}</a> ${roundLabel(m)}</td><td class="r">${clubLink(m.home)}</td><td class="num b">${m.hg} - ${m.ag}</td><td class="l">${clubLink(m.away)}</td></tr>`).join('')}</tbody></table>`) : empty('—');
   const stable = (rows, unit) => rows.length ? wrap(`<table class="st"><thead><tr><th>記録</th><th class="l">クラブ</th><th class="l">期間</th></tr></thead><tbody>${rows.map(x => `<tr><td class="num b">${x.n}${unit}</td><td class="l">${clubLink(x.club)}</td><td class="l">${fmtDate(x.from.date) || compName(x.from.comp)} 〜 ${fmtDate(x.to.date) || compName(x.to.comp)}${x.current === x.n ? ' <span class="live">継続中</span>' : ''}</td></tr>`).join('')}</tbody></table>`) : empty('—');
-  const seas = (rows, f) => rows.length ? wrap(`<table class="st"><thead><tr><th>記録</th><th class="l">クラブ</th><th class="l">大会</th><th>試合</th></tr></thead><tbody>${rows.map(r => `<tr><td class="num b">${f(r)}</td><td class="l">${clubLink(r.club)}</td><td class="l"><a href="#comp-${r.comp.idx}">${compName(r.comp)}</a></td><td class="num">${r.P}</td></tr>`).join('')}</tbody></table>`) : empty('—');
+  const seas = (rows, f) => rows.length ? wrap(`<table class="st"><thead><tr><th>記録</th><th class="l">クラブ</th><th class="l">大会</th><th class="hm">試合</th></tr></thead><tbody>${rows.map(r => `<tr><td class="num b">${f(r)}</td><td class="l">${clubLink(r.club)}</td><td class="l"><a href="#comp-${r.comp.idx}">${compName(r.comp)}</a></td><td class="num hm">${r.P}</td></tr>`).join('')}</tbody></table>`) : empty('—');
   let body = '';
   if (t === 'match') body = `<section class="box">${sec('1試合最多得点')}${mtable(R.topGoals, m => m.hg + m.ag, '得点')}</section><section class="box">${sec('最大得点差')}${mtable(R.topMargin, m => Math.abs(m.hg - m.ag), '差')}</section>`;
   if (t === 'streak') body = `<div class="layout2"><section class="box">${sec('連勝')}${stable(R.streaks.win, '連勝')}</section><section class="box">${sec('無敗')}${stable(R.streaks.unbeaten, '試合')}</section><section class="box">${sec('連続無失点')}${stable(R.streaks.clean, '試合')}</section><section class="box">${sec('連敗')}${stable(R.streaks.loss, '連敗')}</section></div>`;
   if (t === 'season') body = `<div class="layout2"><section class="box">${sec('最多勝点')}${seas(R.season.pts, r => r.Pts)}</section><section class="box">${sec('最多勝利')}${seas(R.season.w, r => r.W)}</section><section class="box">${sec('最多得点')}${seas(R.season.gf, r => r.GF)}</section><section class="box">${sec('最少失点')}${seas(R.season.ga, r => r.GA)}</section></div>`;
   if (t === 'pens') {
     const ps = MODEL.pens; const fw = MODEL.matches.filter(m => m.fw);
-    body = `<section class="box">${sec('処分')}${ps.length ? wrap(`<table class="st"><thead><tr><th class="l">大会</th><th class="l">クラブ</th><th>勝点</th><th>適用節</th><th class="l">内容</th></tr></thead><tbody>${ps.map(p => `<tr><td class="l"><a href="#comp-${p.comp.idx}">${compName(p.comp)}</a></td><td class="l">${clubLink(p.club)}</td><td class="num b down">${sgn(p.pts)}</td><td class="num">${p.rn ?? '—'}</td><td class="l">${esc(p.reason)}</td></tr>`).join('')}</tbody></table>`) : empty('処分はありません')}</section>
+    body = `<section class="box">${sec('処分')}${ps.length ? wrap(`<table class="st"><thead><tr><th class="l">大会</th><th class="l">クラブ</th><th>勝点</th><th class="hm">適用節</th><th class="l">内容</th></tr></thead><tbody>${ps.map(p => `<tr><td class="l"><a href="#comp-${p.comp.idx}">${compName(p.comp)}</a></td><td class="l">${clubLink(p.club)}</td><td class="num b down">${sgn(p.pts)}</td><td class="num hm">${p.rn ?? '—'}</td><td class="l">${esc(p.reason)}</td></tr>`).join('')}</tbody></table>`) : empty('処分はありません')}</section>
       <section class="box">${sec('不戦勝・不戦敗')}${matchesByDate(fw)}</section>`;
   }
   return `${crumb('記録')}<h1>記録</h1>${tabs('rec', [['match', '試合'], ['streak', '連続記録'], ['season', 'シーズン記録'], ['pens', '処分・不戦']], t)}${body}`;
