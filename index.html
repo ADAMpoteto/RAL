@@ -261,6 +261,9 @@ const SETTING_LABELS = {
 
 function norm(s) { return String(s == null ? '' : s).normalize('NFKC').trim(); }
 function keyOf(s) { return norm(s).toLowerCase().replace(/\s+/g, ' '); }
+const MARK_W = /^(○|◯|〇|勝|o|O)$/, MARK_L = /^(×|✕|x|X|負|●)$/;
+function isMark(v) { const s = String(v ?? '').trim(); return MARK_W.test(s) || MARK_L.test(s); }
+function pkv(v) { const s = String(v ?? '').trim(); return MARK_W.test(s) ? 1 : MARK_L.test(s) ? 0 : num(v); }
 function num(v) {
   if (v === undefined || v === null) return null;
   let s = norm(v).replace(/[−–—]/g, '-').replace(/,/g, '');
@@ -340,7 +343,7 @@ function buildModel(raw) {
     const comp = getComp(cid);
     const roundS = norm(r[1]); const group = norm(r[2]);
     const m = { row: i, comp, round: roundS, group, date: dateKey(r[3]), home: h, away: a,
-      hg: num(r[5]), ag: num(r[6]), pkh: num(r[8]), pka: num(r[9]), note: norm(r[11]),
+      hg: num(r[5]), ag: num(r[6]), pkh: pkv(r[8]), pka: pkv(r[9]), pkMark: isMark(r[8]) && isMark(r[9]), note: norm(r[11]),
       fw: kindS.includes('ホーム') && kindS.includes('不戦') ? 'H' : (kindS.includes('アウェイ') && kindS.includes('不戦') ? 'A' : null) };
     m.isGroup = comp.type === 'cup' && (!!group || /^予選/.test(roundS));
     if (m.isGroup && !m.group) m.group = '予選';
@@ -480,7 +483,7 @@ function computeComp(model, c) {
           else if (ga !== gb) t.winner = ga > gb ? t.a : t.b;
           else if (last.pkh !== null && last.pka !== null && last.pkh !== last.pka) t.winner = (last.pkh > last.pka) === (last.home === t.a) ? t.a : t.b;
         }
-        if (last.pkh !== null && last.pka !== null) t.pk = last.home === t.a ? [last.pkh, last.pka] : [last.pka, last.pkh];
+        if (last.pkh !== null && last.pka !== null) { t.pk = last.home === t.a ? [last.pkh, last.pka] : [last.pka, last.pkh]; t.pkMark = !!last.pkMark; }
         t.loser = t.winner ? (t.winner === t.a ? t.b : t.a) : null;
         if (t.legs.length > 1) t.legs.forEach((m, i) => { m.leg = i + 1; });
         c.ties.push(t);
@@ -788,7 +791,7 @@ function scoreHtml(m) {
 }
 function matchRow(m) {
   const hw = m.played && m.adv === 'H', aw = m.played && m.adv === 'A';
-  const pk = m.pkh !== null && m.pka !== null ? `<div class="pk">PK ${m.pkh} - ${m.pka}</div>` : '';
+  const pk = m.pkh !== null && m.pka !== null ? `<div class="pk">${m.pkMark ? (m.pkh > m.pka ? 'PK勝ち（' + esc(m.home.name) + '）' : 'PK勝ち（' + esc(m.away.name) + '）') : `PK ${m.pkh} - ${m.pka}`}</div>` : '';
   return `<div class="match">
     <a class="side home ${hw ? 'win' : ''}" href="#club-${m.home.id}"><span class="nm">${esc(m.home.name)}</span>${em(m.home)}</a>
     <div class="score">${scoreHtml(m)}${pk}</div>
@@ -948,8 +951,8 @@ function bracket(c) {
   const rounds = c.koRounds.filter(r => c.ties.some(x => x.round === r));
   return `<div class="bracket">${rounds.map(r => `<div class="bcol"><h4>${esc(r)}</h4>${c.ties.filter(x => x.round === r).map(x => {
     const two = x.legs.length > 1;
-    const side = (cl, g, pk) => `<div class="bt ${x.winner === cl ? 'win' : x.winner ? 'lose' : ''}">${clubLink(cl)}<b>${x.played ? g : ''}${x.pk ? `<small>(${pk})</small>` : ''}</b></div>`;
-    const legs = two ? `<div class="bd">${x.legs.map((m, i) => `第${i + 1}戦 ${m.home === x.a ? (m.counted ? m.hg + '-' + m.ag : '-') : (m.counted ? m.ag + '-' + m.hg : '-')}`).join('　')}${x.pk ? '　PK ' + x.pk[0] + '-' + x.pk[1] : ''}</div>` : (x.legs[0].date ? `<div class="bd">${dateHead(x.legs[0].date)}</div>` : '');
+    const side = (cl, g, pk) => `<div class="bt ${x.winner === cl ? 'win' : x.winner ? 'lose' : ''}">${clubLink(cl)}<b>${x.played ? g : ''}${x.pk ? (x.pkMark ? (x.winner === cl ? '<small>(PK)</small>' : '') : `<small>(${pk})</small>`) : ''}</b></div>`;
+    const legs = two ? `<div class="bd">${x.legs.map((m, i) => `第${i + 1}戦 ${m.home === x.a ? (m.counted ? m.hg + '-' + m.ag : '-') : (m.counted ? m.ag + '-' + m.hg : '-')}`).join('　')}${x.pk && !x.pkMark ? '　PK ' + x.pk[0] + '-' + x.pk[1] : ''}</div>` : (x.legs[0].date ? `<div class="bd">${dateHead(x.legs[0].date)}</div>` : '');
     return `<div class="bm">${side(x.a, x.ga, x.pk ? x.pk[0] : '')}${side(x.b, x.gb, x.pk ? x.pk[1] : '')}${legs}</div>`;
   }).join('')}</div>`).join('')}</div>`;
 }
